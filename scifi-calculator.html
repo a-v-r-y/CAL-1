@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBIT-7 // Compute Console</title>
+<style>
+  :root{
+    --void: #060a10;
+    --panel: #0d151f;
+    --panel-2: #101c29;
+    --panel-3: #0a121b;
+    --line: #1c2e3d;
+    --cyan: #5be3d4;
+    --cyan-dim: #2c6b66;
+    --amber: #ffb15c;
+    --red: #ff6a5c;
+    --text: #cfe6e4;
+    --text-dim: #6f8c93;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    margin: 0;
+    background: radial-gradient(ellipse at 50% -10%, #10202b 0%, var(--void) 55%);
+    font-family: 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+    color: var(--text);
+  }
+  body { display:flex; justify-content:center; padding: 18px; }
+
+  .console {
+    width: 100%;
+    max-width: 460px;
+    background: linear-gradient(180deg, var(--panel) 0%, #091018 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 18px;
+    box-shadow: 0 0 0 1px #000, 0 30px 60px -20px rgba(0,0,0,0.7), 0 0 40px -10px rgba(91,227,212,0.08);
+    position: relative;
+  }
+
+  .console-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    padding: 0 2px;
+  }
+  .console-head .designation { font-size: 12px; letter-spacing: 0.14em; color: var(--text-dim); }
+  .console-head .designation b { color: var(--cyan); font-weight: 600; }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--cyan);
+    box-shadow: 0 0 8px 1px var(--cyan); display: inline-block; margin-right: 6px;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  @media (prefers-reduced-motion: reduce) { .status-dot{ animation:none; } }
+
+  /* tab bar */
+  .tabbar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: thin;
+  }
+  .tabbar::-webkit-scrollbar { height: 4px; }
+  .tabbar::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+  .tab {
+    flex: 0 0 auto;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 7px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--cyan); border-color: var(--cyan-dim); background: #12242a; box-shadow: 0 0 10px -4px rgba(91,227,212,0.5); }
+
+  /* tool select row */
+  .tool-select {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  select, input[type=text], input[type=number] {
+    background: var(--panel-3);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    font-family: inherit;
+    width: 100%;
+  }
+  select { color: var(--cyan); }
+  select:focus, input:focus { outline: 1px solid var(--cyan); }
+
+  .field { margin-bottom: 10px; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .field { flex: 1; margin-bottom: 10px; }
+
+  .panel-block {
+    background: var(--panel-3);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .panel-block h4 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.05s ease, background 0.15s ease;
+  }
+  button:hover { background: #16273580; border-color: var(--cyan-dim); }
+  button:active { transform: translateY(1px) scale(0.98); }
+  button.primary {
+    background: linear-gradient(180deg, #1a4a44, #103430);
+    color: #eafff9;
+    border-color: var(--cyan-dim);
+    box-shadow: 0 0 14px -4px rgba(91,227,212,0.5);
+    flex: 1;
+  }
+  button.small { padding: 6px 10px; font-size: 12px; }
+  button.ghost { color: var(--amber); border-color: #3a2c1a; }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+  .result {
+    background: #050b10;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 14px;
+    margin-top: 4px;
+    min-height: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .result::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(91,227,212,0.02) 0px, rgba(91,227,212,0.02) 1px, transparent 1px, transparent 3px);
+    pointer-events: none;
+  }
+  .result-line {
+    font-size: 14px;
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(91,227,212,0.35);
+    margin: 3px 0;
+    word-break: break-word;
+    position: relative;
+  }
+  .result-label { color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; margin-top: 8px; }
+  .result-err { color: var(--red); font-size: 13px; text-shadow: 0 0 8px rgba(255,106,92,0.35); }
+
+  .matrix-grid { display: inline-grid; gap: 5px; margin: 6px 0; }
+  .matrix-grid input { width: 52px; text-align: center; padding: 6px 2px; }
+
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  table.data-table th, table.data-table td {
+    border: 1px solid var(--line);
+    padding: 5px 6px;
+    text-align: right;
+    color: var(--text);
+  }
+  table.data-table th { color: var(--cyan); font-weight: 600; background: #0e1a22; }
+
+  .const-table { width: 100%; font-size: 12px; }
+  .const-table td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
+  .const-table td.sym { color: var(--amber); width: 60px; }
+  .const-table td.val { color: var(--cyan); font-variant-numeric: tabular-nums; }
+  .const-table td.desc { color: var(--text-dim); font-size: 11px; }
+  .const-table tr { cursor: pointer; }
+  .const-table tr:hover td { background: #12242a; }
+
+  .hint { font-size: 10px; color: var(--text-dim); margin: -4px 0 10px; line-height: 1.5; }
+
+  .footer-note { margin-top: 14px; text-align: center; font-size: 9px; letter-spacing: 0.16em; color: #3d5a5f; }
+
+  textarea {
+    background: var(--panel-3);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+  }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="console-head">
+    <div class="designation"><span class="status-dot"></span><b>ORBIT-7</b> compute unit</div>
+    <div class="designation" id="clockOut">00:00</div>
+  </div>
+
+  <div class="tabbar" id="tabbar"></div>
+  <div id="toolArea"></div>
+
+  <div class="footer-note">signal locked · stardate variable</div>
+</div>
+
+<script>
+// ============================================================
+// ORBIT-7 MATH ENGINE
+// Expression parser/evaluator + numerical algorithms
+// ============================================================
+
+const CONSTANTS = {
+  pi: Math.PI, e: Math.E,
+  c: 2.99792458e8,        // speed of light m/s
+  h: 6.62607015e-34,      // Planck constant
+  hbar: 1.054571817e-34,
+  NA: 6.02214076e23,      // Avogadro
+  k: 1.380649e-23,        // Boltzmann
+  G: 6.67430e-11,         // gravitational constant
+  R: 8.314462618,         // gas constant
+  g: 9.80665,             // standard gravity
+  qe: 1.602176634e-19,    // elementary charge
+  me: 9.1093837015e-31,   // electron mass
+  mp: 1.67262192369e-27,  // proton mass
+  eps0: 8.8541878128e-12, // vacuum permittivity
+  mu0: 1.25663706212e-6,  // vacuum permeability
+  F: 96485.33212          // Faraday constant
+};
+
+let DEGREES = false; // trig mode for the expression evaluator
+function setDegrees(v) { DEGREES = v; }
+
+// ---------- Tokenizer ----------
+function tokenize(src) {
+  const tokens = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    if (/[0-9.]/.test(ch)) {
+      let j = i;
+      while (j < n && /[0-9.]/.test(src[j])) j++;
+      // exponent part e.g. 1.5e-10
+      if (j < n && (src[j] === 'e' || src[j] === 'E') &&
+          (j + 1 < n) && /[0-9+\-]/.test(src[j+1])) {
+        let k = j + 1;
+        if (src[k] === '+' || src[k] === '-') k++;
+        while (k < n && /[0-9]/.test(src[k])) k++;
+        j = k;
+      }
+      tokens.push({ type: 'num', value: parseFloat(src.slice(i, j)) });
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i;
+      while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      tokens.push({ type: 'ident', value: src.slice(i, j) });
+      i = j;
+      continue;
+    }
+    if ('+-*/^%(),!'.includes(ch)) {
+      tokens.push({ type: 'op', value: ch });
+      i++;
+      continue;
+    }
+    throw new Error(`Unexpected character '${ch}' in expression`);
+  }
+  return tokens;
+}
+
+// ---------- Parser (recursive descent, implicit multiplication) ----------
+class Parser {
+  constructor(tokens) { this.tokens = tokens; this.pos = 0; }
+  peek() { return this.tokens[this.pos]; }
+  next() { return this.tokens[this.pos++]; }
+  expect(val) {
+    const t = this.next();
+    if (!t || t.value !== val) throw new Error(`Expected '${val}'`);
+    return t;
+  }
+  parse() {
+    if (this.tokens.length === 0) throw new Error('Empty expression');
+    const node = this.expr();
+    if (this.pos < this.tokens.length) throw new Error('Unexpected trailing tokens');
+    return node;
+  }
+  expr() {
+    let node = this.term();
+    while (this.peek() && this.peek().type === 'op' && (this.peek().value === '+' || this.peek().value === '-')) {
+      const op = this.next().value;
+      node = { type: 'bin', op, left: node, right: this.term() };
+    }
+    return node;
+  }
+  startsFactor() {
+    const t = this.peek();
+    if (!t) return false;
+    if (t.type === 'num' || t.type === 'ident') return true;
+    if (t.type === 'op' && t.value === '(') return true;
+    return false;
+  }
+  term() {
+    let node = this.unary();
+    for (;;) {
+      const t = this.peek();
+      if (t && t.type === 'op' && (t.value === '*' || t.value === '/' || t.value === '%')) {
+        const op = this.next().value;
+        node = { type: 'bin', op, left: node, right: this.unary() };
+      } else if (this.startsFactor()) {
+        // implicit multiplication: "2x", "2(x+1)", "3sin(x)"
+        node = { type: 'bin', op: '*', left: node, right: this.unary() };
+      } else break;
+    }
+    return node;
+  }
+  unary() {
+    const t = this.peek();
+    if (t && t.type === 'op' && t.value === '-') { this.next(); return { type: 'neg', arg: this.unary() }; }
+    if (t && t.type === 'op' && t.value === '+') { this.next(); return this.unary(); }
+    return this.power();
+  }
+  power() {
+    let node = this.postfix();
+    const t = this.peek();
+    if (t && t.type === 'op' && t.value === '^') {
+      this.next();
+      const right = this.unary(); // right-assoc, allows 2^-1
+      node = { type: 'bin', op: '^', left: node, right };
+    }
+    return node;
+  }
+  postfix() {
+    let node = this.primary();
+    while (this.peek() && this.peek().type === 'op' && this.peek().value === '!') {
+      this.next();
+      node = { type: 'fact', arg: node };
+    }
+    return node;
+  }
+  primary() {
+    const t = this.next();
+    if (!t) throw new Error('Unexpected end of expression');
+    if (t.type === 'num') return { type: 'num', value: t.value };
+    if (t.type === 'ident') {
+      if (this.peek() && this.peek().type === 'op' && this.peek().value === '(') {
+        this.next();
+        const args = [];
+        if (!(this.peek() && this.peek().value === ')')) {
+          args.push(this.expr());
+          while (this.peek() && this.peek().value === ',') { this.next(); args.push(this.expr()); }
+        }
+        this.expect(')');
+        return { type: 'call', name: t.value, args };
+      }
+      return { type: 'ident', name: t.value };
+    }
+    if (t.type === 'op' && t.value === '(') {
+      const e = this.expr();
+      this.expect(')');
+      return e;
+    }
+    throw new Error(`Unexpected token '${t.value}'`);
+  }
+}
+
+function factorial(x) {
+  if (Math.abs(x - Math.round(x)) < 1e-9 && x >= 0) {
+    let r = 1;
+    for (let i = 2; i <= Math.round(x); i++) r *= i;
+    return r;
+  }
+  return gamma(x + 1); // extend to reals via gamma
+}
+
+// Lanczos approximation for Gamma function
+function gamma(z) {
+  const g = 7;
+  const p = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7
+  ];
+  if (z < 0.5) {
+    return Math.PI / (Math.sin(Math.PI * z) * gamma(1 - z));
+  }
+  z -= 1;
+  let x = p[0];
+  for (let i = 1; i < g + 2; i++) x += p[i] / (z + i);
+  const t = z + g + 0.5;
+  return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+}
+
+const FUNCTIONS = {
+  sin: x => Math.sin(DEGREES ? x * Math.PI / 180 : x),
+  cos: x => Math.cos(DEGREES ? x * Math.PI / 180 : x),
+  tan: x => Math.tan(DEGREES ? x * Math.PI / 180 : x),
+  asin: x => { const r = Math.asin(x); return DEGREES ? r * 180 / Math.PI : r; },
+  acos: x => { const r = Math.acos(x); return DEGREES ? r * 180 / Math.PI : r; },
+  atan: x => { const r = Math.atan(x); return DEGREES ? r * 180 / Math.PI : r; },
+  sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+  asinh: Math.asinh, acosh: Math.acosh, atanh: Math.atanh,
+  sqrt: Math.sqrt, cbrt: Math.cbrt,
+  exp: Math.exp, ln: Math.log, log: Math.log10, log2: Math.log2,
+  abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round, sign: Math.sign,
+  min: (...a) => Math.min(...a), max: (...a) => Math.max(...a),
+  fact: factorial, gamma: gamma
+};
+
+function evalNode(node, scope) {
+  switch (node.type) {
+    case 'num': return node.value;
+    case 'ident': {
+      if (scope && Object.prototype.hasOwnProperty.call(scope, node.name)) return scope[node.name];
+      if (Object.prototype.hasOwnProperty.call(CONSTANTS, node.name)) return CONSTANTS[node.name];
+      throw new Error(`Unknown identifier '${node.name}'`);
+    }
+    case 'call': {
+      const fn = FUNCTIONS[node.name];
+      if (!fn) throw new Error(`Unknown function '${node.name}'`);
+      const args = node.args.map(a => evalNode(a, scope));
+      return fn(...args);
+    }
+    case 'neg': return -evalNode(node.arg, scope);
+    case 'fact': return factorial(evalNode(node.arg, scope));
+    case 'bin': {
+      const l = evalNode(node.left, scope), r = evalNode(node.right, scope);
+      switch (node.op) {
+        case '+': return l + r;
+        case '-': return l - r;
+        case '*': return l * r;
+        case '/': return l / r;
+        case '%': return l % r;
+        case '^': return Math.pow(l, r);
+      }
+    }
+  }
+  throw new Error('Bad AST node');
+}
+
+function compile(src) {
+  const ast = new Parser(tokenize(src)).parse();
+  return (scope) => evalNode(ast, scope);
+}
+
+function evalExpr(src, scope) {
+  return compile(src)(scope || {});
+}
+
+// ============================================================
+// CALCULUS
+// ============================================================
+
+function simpsonIntegrate(fnSrc, a, b, n) {
+  n = Math.max(2, Math.round(n || 1000));
+  if (n % 2 === 1) n++; // Simpson needs even n
+  const f = compile(fnSrc);
+  const h = (b - a) / n;
+  let sum = f({ x: a }) + f({ x: b });
+  for (let i = 1; i < n; i++) {
+    const x = a + i * h;
+    sum += (i % 2 === 0 ? 2 : 4) * f({ x });
+  }
+  return (h / 3) * sum;
+}
+
+function numericalDerivative(fnSrc, x0, h) {
+  h = h || 1e-5;
+  const f = compile(fnSrc);
+  // 5-point stencil, higher accuracy
+  return (-f({ x: x0 + 2 * h }) + 8 * f({ x: x0 + h }) - 8 * f({ x: x0 - h }) + f({ x: x0 - 2 * h })) / (12 * h);
+}
+
+function summation(fnSrc, start, end, varName) {
+  varName = varName || 'n';
+  start = Math.round(start); end = Math.round(end);
+  const f = compile(fnSrc);
+  let s = 0;
+  for (let k = start; k <= end; k++) s += f({ [varName]: k });
+  return s;
+}
+
+function product(fnSrc, start, end, varName) {
+  varName = varName || 'n';
+  start = Math.round(start); end = Math.round(end);
+  const f = compile(fnSrc);
+  let p = 1;
+  for (let k = start; k <= end; k++) p *= f({ [varName]: k });
+  return p;
+}
+
+// ============================================================
+// MATRIX & VECTOR ALGEBRA
+// ============================================================
+
+function matAdd(A, B) {
+  return A.map((row, i) => row.map((v, j) => v + B[i][j]));
+}
+function matSub(A, B) {
+  return A.map((row, i) => row.map((v, j) => v - B[i][j]));
+}
+function matMul(A, B) {
+  const rows = A.length, inner = B.length, cols = B[0].length;
+  const R = Array.from({ length: rows }, () => Array(cols).fill(0));
+  for (let i = 0; i < rows; i++)
+    for (let j = 0; j < cols; j++) {
+      let s = 0;
+      for (let k = 0; k < inner; k++) s += A[i][k] * B[k][j];
+      R[i][j] = s;
+    }
+  return R;
+}
+function matTranspose(A) {
+  const rows = A.length, cols = A[0].length;
+  const R = Array.from({ length: cols }, () => Array(rows).fill(0));
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) R[j][i] = A[i][j];
+  return R;
+}
+function matDeterminant(A) {
+  const n = A.length;
+  if (n === 1) return A[0][0];
+  if (n === 2) return A[0][0] * A[1][1] - A[0][1] * A[1][0];
+  let det = 0;
+  for (let c = 0; c < n; c++) {
+    const minor = A.slice(1).map(row => row.filter((_, j) => j !== c));
+    det += ((c % 2 === 0) ? 1 : -1) * A[0][c] * matDeterminant(minor);
+  }
+  return det;
+}
+function matInverse(A) {
+  const n = A.length;
+  // augmented [A | I], Gauss-Jordan with partial pivoting
+  const M = A.map((row, i) => [...row, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  for (let col = 0; col < n; col++) {
+    // pivot
+    let pivotRow = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[pivotRow][col])) pivotRow = r;
+    if (Math.abs(M[pivotRow][col]) < 1e-12) throw new Error('Matrix is singular (not invertible)');
+    [M[col], M[pivotRow]] = [M[pivotRow], M[col]];
+    const pivot = M[col][col];
+    for (let j = 0; j < 2 * n; j++) M[col][j] /= pivot;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = M[r][col];
+      for (let j = 0; j < 2 * n; j++) M[r][j] -= factor * M[col][j];
+    }
+  }
+  return M.map(row => row.slice(n));
+}
+
+function vecDot(a, b) { return a.reduce((s, v, i) => s + v * b[i], 0); }
+function vecCross(a, b) {
+  if (a.length === 3 && b.length === 3) {
+    return [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0]
+    ];
+  }
+  if (a.length === 2 && b.length === 2) {
+    return a[0] * b[1] - a[1] * b[0]; // scalar z-component
+  }
+  throw new Error('Cross product needs 2D or 3D vectors');
+}
+function vecMagnitude(a) { return Math.sqrt(a.reduce((s, v) => s + v * v, 0)); }
+
+// ============================================================
+// PROBABILITY & STATISTICS
+// ============================================================
+
+function erf(x) {
+  // Abramowitz & Stegun 7.1.26
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741,
+        a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+
+function normalPDF(x, mu, sigma) {
+  return Math.exp(-((x - mu) ** 2) / (2 * sigma * sigma)) / (sigma * Math.sqrt(2 * Math.PI));
+}
+function normalCDF(x, mu, sigma) {
+  return 0.5 * (1 + erf((x - mu) / (sigma * Math.sqrt(2))));
+}
+// Acklam's algorithm for inverse standard normal CDF
+function invNormalStandard(p) {
+  if (p <= 0 || p >= 1) throw new Error('p must be in (0,1)');
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+             1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+             6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+             -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+             3.754408661907416e+00];
+  const plow = 0.02425, phigh = 1 - plow;
+  let q, r;
+  if (p < plow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+           ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  } else if (p <= phigh) {
+    q = p - 0.5; r = q * q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q /
+           (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+  } else {
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+            ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+}
+function invNormal(p, mu, sigma) { return mu + sigma * invNormalStandard(p); }
+
+function nCr(n, r) {
+  if (r < 0 || r > n) return 0;
+  r = Math.min(r, n - r);
+  let result = 1;
+  for (let i = 0; i < r; i++) result = result * (n - i) / (i + 1);
+  return Math.round(result);
+}
+function nPr(n, r) {
+  if (r < 0 || r > n) return 0;
+  let result = 1;
+  for (let i = 0; i < r; i++) result *= (n - i);
+  return result;
+}
+
+function binomialPMF(k, n, p) { return nCr(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k); }
+function binomialCDF(k, n, p) { let s = 0; for (let i = 0; i <= k; i++) s += binomialPMF(i, n, p); return s; }
+function poissonPMF(k, lambda) { return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k); }
+function poissonCDF(k, lambda) { let s = 0; for (let i = 0; i <= k; i++) s += poissonPMF(i, lambda); return s; }
+
+function statSums(xs) {
+  const n = xs.length;
+  const sumX = xs.reduce((a, b) => a + b, 0);
+  const sumX2 = xs.reduce((a, b) => a + b * b, 0);
+  const mean = sumX / n;
+  const variancePop = sumX2 / n - mean * mean;
+  const varianceSamp = n > 1 ? (sumX2 - n * mean * mean) / (n - 1) : NaN;
+  return {
+    n, sumX, sumX2, mean,
+    variancePop, varianceSamp,
+    stdevPop: Math.sqrt(Math.max(0, variancePop)),
+    stdevSamp: Math.sqrt(Math.max(0, varianceSamp))
+  };
+}
+function statSumsXY(xs, ys) {
+  const n = xs.length;
+  const sumX = xs.reduce((a, b) => a + b, 0);
+  const sumY = ys.reduce((a, b) => a + b, 0);
+  const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
+  const sumX2 = xs.reduce((a, x) => a + x * x, 0);
+  const sumY2 = ys.reduce((a, y) => a + y * y, 0);
+  return { n, sumX, sumY, sumXY, sumX2, sumY2 };
+}
+
+// linear least squares y = a + b x
+function linRegress(xs, ys) {
+  const { n, sumX, sumY, sumXY, sumX2 } = statSumsXY(xs, ys);
+  const b = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const a = (sumY - b * sumX) / n;
+  const r = rSquared(xs, ys, x => a + b * x);
+  return { a, b, r2: r };
+}
+function rSquared(xs, ys, predict) {
+  const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
+  let ssRes = 0, ssTot = 0;
+  ys.forEach((y, i) => { const p = predict(xs[i]); ssRes += (y - p) ** 2; ssTot += (y - meanY) ** 2; });
+  return ssTot === 0 ? 1 : 1 - ssRes / ssTot;
+}
+function logRegress(xs, ys) { // y = a + b ln(x)
+  const lx = xs.map(Math.log);
+  const { a, b } = linRegress(lx, ys);
+  return { a, b, r2: rSquared(xs, ys, x => a + b * Math.log(x)) };
+}
+function expRegress(xs, ys) { // y = a * e^(b x)
+  const ly = ys.map(Math.log);
+  const { a: la, b } = linRegress(xs, ly);
+  const a = Math.exp(la);
+  return { a, b, r2: rSquared(xs, ys, x => a * Math.exp(b * x)) };
+}
+function powRegress(xs, ys) { // y = a * x^b
+  const lx = xs.map(Math.log), ly = ys.map(Math.log);
+  const { a: la, b } = linRegress(lx, ly);
+  const a = Math.exp(la);
+  return { a, b, r2: rSquared(xs, ys, x => a * Math.pow(x, b)) };
+}
+function quadRegress(xs, ys) { // y = a + b x + c x^2
+  const n = xs.length;
+  let S0 = n, S1 = 0, S2 = 0, S3 = 0, S4 = 0, T0 = 0, T1 = 0, T2 = 0;
+  for (let i = 0; i < n; i++) {
+    const x = xs[i], y = ys[i], x2 = x * x;
+    S1 += x; S2 += x2; S3 += x2 * x; S4 += x2 * x2;
+    T0 += y; T1 += x * y; T2 += x2 * y;
+  }
+  const A = [[S0, S1, S2], [S1, S2, S3], [S2, S3, S4]];
+  const B = [T0, T1, T2];
+  const [a, b, c] = solveLinearSystem(A, B);
+  return { a, b, c, r2: rSquared(xs, ys, x => a + b * x + c * x * x) };
+}
+
+// ============================================================
+// EQUATION SOLVERS
+// ============================================================
+
+function solveLinearSystem(A, b) {
+  const n = A.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let pivotRow = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[pivotRow][col])) pivotRow = r;
+    if (Math.abs(M[pivotRow][col]) < 1e-12) throw new Error('System has no unique solution');
+    [M[col], M[pivotRow]] = [M[pivotRow], M[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = M[r][col] / M[col][col];
+      for (let j = col; j <= n; j++) M[r][j] -= factor * M[col][j];
+    }
+  }
+  return M.map((row, i) => row[n] / row[i]);
+}
+
+// ---- Complex number helpers ----
+const C = {
+  add: (a, b) => ({ re: a.re + b.re, im: a.im + b.im }),
+  sub: (a, b) => ({ re: a.re - b.re, im: a.im - b.im }),
+  mul: (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re }),
+  div: (a, b) => {
+    const d = b.re * b.re + b.im * b.im;
+    return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d };
+  },
+  abs: a => Math.hypot(a.re, a.im),
+  arg: a => Math.atan2(a.im, a.re),
+  conj: a => ({ re: a.re, im: -a.im })
+};
+
+// Durand-Kerner method: all complex roots of polynomial (coeffs highest -> lowest degree)
+function polyRoots(coeffs) {
+  // strip leading zeros
+  while (coeffs.length > 1 && Math.abs(coeffs[0]) < 1e-14) coeffs = coeffs.slice(1);
+  const n = coeffs.length - 1;
+  if (n < 1) throw new Error('Degree must be >= 1');
+  const lead = coeffs[0];
+  const c = coeffs.map(v => v / lead);
+  const evalPoly = (z) => {
+    let acc = { re: c[0], im: 0 };
+    for (let i = 1; i < c.length; i++) acc = C.add(C.mul(acc, z), { re: c[i], im: 0 });
+    return acc;
+  };
+  let roots = [];
+  const base = { re: 0.4, im: 0.9 };
+  let p = { re: 1, im: 0 };
+  for (let i = 0; i < n; i++) { p = C.mul(p, base); roots.push(p); }
+  for (let iter = 0; iter < 1000; iter++) {
+    let maxDelta = 0;
+    const nr = roots.slice();
+    for (let i = 0; i < n; i++) {
+      const num = evalPoly(roots[i]);
+      let denom = { re: 1, im: 0 };
+      for (let j = 0; j < n; j++) if (j !== i) denom = C.mul(denom, C.sub(roots[i], roots[j]));
+      const delta = C.div(num, denom);
+      nr[i] = C.sub(roots[i], delta);
+      maxDelta = Math.max(maxDelta, C.abs(delta));
+    }
+    roots = nr;
+    if (maxDelta < 1e-13) break;
+  }
+  // clean tiny imaginary parts
+  return roots.map(z => ({
+    re: Math.abs(z.re) < 1e-9 ? 0 : z.re,
+    im: Math.abs(z.im) < 1e-9 ? 0 : z.im
+  }));
+}
+
+function newtonSolve(fnSrc, x0, tol, maxIter) {
+  tol = tol || 1e-10; maxIter = maxIter || 100;
+  const f = compile(fnSrc);
+  let x = x0;
+  for (let i = 0; i < maxIter; i++) {
+    const fx = f({ x });
+    const h = 1e-6 * (Math.abs(x) > 1 ? Math.abs(x) : 1);
+    const dfx = (f({ x: x + h }) - f({ x: x - h })) / (2 * h);
+    if (Math.abs(dfx) < 1e-14) throw new Error('Derivative near zero — try a different guess');
+    const xNew = x - fx / dfx;
+    if (Math.abs(xNew - x) < tol) return { root: xNew, iterations: i + 1 };
+    x = xNew;
+  }
+  return { root: x, iterations: maxIter, warning: 'Did not fully converge' };
+}
+
+// ============================================================
+// BASE-N
+// ============================================================
+
+function baseToDecimal(str, base) { return BigInt(parseInt(str, base) >= 0 ? parseBigIntBase(str, base) : 0); }
+function parseBigIntBase(str, base) {
+  let result = 0n;
+  const B = BigInt(base);
+  const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+  str = str.toLowerCase().trim();
+  let neg = false;
+  if (str.startsWith('-')) { neg = true; str = str.slice(1); }
+  for (const ch of str) {
+    const d = digits.indexOf(ch);
+    if (d < 0 || d >= base) throw new Error(`Invalid digit '${ch}' for base ${base}`);
+    result = result * B + BigInt(d);
+  }
+  return neg ? -result : result;
+}
+function decimalToBase(value, base) {
+  let v = BigInt(value);
+  if (v === 0n) return '0';
+  let neg = v < 0n; if (neg) v = -v;
+  const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+  let out = '';
+  const B = BigInt(base);
+  while (v > 0n) { out = digits[Number(v % B)] + out; v /= B; }
+  return neg ? '-' + out : out;
+}
+
+// ============================================================
+// UNIT CONVERSIONS
+// ============================================================
+
+const UNIT_CATEGORIES = {
+  length: {
+    base: 'm',
+    units: { m: 1, km: 1000, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254, nmi: 1852 }
+  },
+  area: {
+    base: 'm2',
+    units: { m2: 1, km2: 1e6, cm2: 1e-4, ft2: 0.09290304, in2: 0.00064516, acre: 4046.8564224, hectare: 10000 }
+  },
+  mass: {
+    base: 'kg',
+    units: { kg: 1, g: 0.001, mg: 1e-6, lb: 0.45359237, oz: 0.028349523125, ton: 907.18474, tonne: 1000 }
+  },
+  velocity: {
+    base: 'mps',
+    units: { mps: 1, kmh: 1 / 3.6, mph: 0.44704, fps: 0.3048, knot: 0.514444 }
+  },
+  pressure: {
+    base: 'pa',
+    units: { pa: 1, kpa: 1000, bar: 100000, atm: 101325, psi: 6894.757293168, mmHg: 133.322387415 }
+  }
+};
+
+function convertUnit(category, value, from, to) {
+  if (category === 'temperature') return convertTemperature(value, from, to);
+  const cat = UNIT_CATEGORIES[category];
+  if (!cat) throw new Error('Unknown category');
+  const base = value * cat.units[from];
+  return base / cat.units[to];
+}
+function convertTemperature(value, from, to) {
+  let c;
+  if (from === 'C') c = value;
+  else if (from === 'F') c = (value - 32) * 5 / 9;
+  else if (from === 'K') c = value - 273.15;
+  else throw new Error('Unknown temp unit');
+  if (to === 'C') return c;
+  if (to === 'F') return c * 9 / 5 + 32;
+  if (to === 'K') return c + 273.15;
+  throw new Error('Unknown temp unit');
+}
+
+// ============================================================
+// ENGINEERING NOTATION
+// ============================================================
+
+function toEngineering(value) {
+  if (value === 0) return '0';
+  const sign = value < 0 ? '-' : '';
+  value = Math.abs(value);
+  let exp = Math.floor(Math.log10(value));
+  let engExp = Math.floor(exp / 3) * 3;
+  let mantissa = value / Math.pow(10, engExp);
+  // guard against rounding pushing mantissa to 1000
+  if (mantissa >= 1000) { mantissa /= 1000; engExp += 3; }
+  return `${sign}${parseFloat(mantissa.toPrecision(8))}\u00D710^${engExp}`;
+}
+
+
+</script>
+<script>
+// ============================================================
+// ORBIT-7 UI LAYER
+// ============================================================
+
+// ---------- generic helpers ----------
+function h(tag, props, children) {
+  const node = document.createElement(tag);
+  if (props) for (const k in props) {
+    if (k === 'text') node.textContent = props[k];
+    else if (k === 'html') node.innerHTML = props[k];
+    else if (k.startsWith('on') && typeof props[k] === 'function') node.addEventListener(k.slice(2), props[k]);
+    else node.setAttribute(k, props[k]);
+  }
+  (children || []).forEach(c => { if (c) node.appendChild(c); });
+  return node;
+}
+
+function fmt(n) {
+  if (n === null || n === undefined || Number.isNaN(n)) return 'ERR';
+  if (!isFinite(n)) return n > 0 ? '+Infinity' : '-Infinity';
+  if (Math.abs(n) < 1e-12) n = 0;
+  if (Math.abs(n) !== 0 && (Math.abs(n) < 1e-6 || Math.abs(n) >= 1e12)) return n.toExponential(6);
+  let s = parseFloat(n.toPrecision(10)).toString();
+  return s;
+}
+
+function formatComplex(z) {
+  const re = Math.abs(z.re) < 1e-9 ? 0 : z.re;
+  const im = Math.abs(z.im) < 1e-9 ? 0 : z.im;
+  if (im === 0) return fmt(re);
+  if (re === 0) return `${fmt(im)}i`;
+  const sign = im < 0 ? '-' : '+';
+  return `${fmt(re)} ${sign} ${fmt(Math.abs(im))}i`;
+}
+
+function resultPanel(lines, isError) {
+  const box = h('div', { class: 'result' });
+  if (isError) {
+    box.appendChild(h('div', { class: 'result-err', text: '⚠ ' + lines }));
+    return box;
+  }
+  lines.forEach(l => {
+    if (l.label) box.appendChild(h('div', { class: 'result-label', text: l.label }));
+    box.appendChild(h('div', { class: 'result-line', text: l.value !== undefined ? l.value : l }));
+  });
+  return box;
+}
+
+function field(labelText, inputEl) {
+  return h('div', { class: 'field' }, [h('label', { text: labelText }), inputEl]);
+}
+
+function textInput(id, placeholder, value) {
+  return h('input', { type: 'text', id, placeholder: placeholder || '', value: value || '' });
+}
+
+function numInput(id, placeholder, value) {
+  return h('input', { type: 'text', id, placeholder: placeholder || '0', value: value !== undefined ? value : '' });
+}
+
+function selectEl(id, options, selectedValue) {
+  const sel = h('select', { id });
+  options.forEach(opt => {
+    const [val, label] = Array.isArray(opt) ? opt : [opt, opt];
+    const o = h('option', { value: val, text: label });
+    if (val === selectedValue) o.setAttribute('selected', 'selected');
+    sel.appendChild(o);
+  });
+  return sel;
+}
+
+function gv(id) { return document.getElementById(id).value; }
+function gvf(id) { return parseFloat(document.getElementById(id).value); }
+
+function tryRun(container, fn) {
+  const old = container.querySelector('.result');
+  if (old) old.remove();
+  try {
+    const out = fn();
+    container.appendChild(out);
+  } catch (err) {
+    container.appendChild(resultPanel(err.message || String(err), true));
+  }
+}
+
+// ---------- global degree/radian toggle ----------
+let degModeUI = false;
+function refreshDegBtn() {
+  const b = document.getElementById('degToggle');
+  if (b) b.textContent = degModeUI ? 'DEG' : 'RAD';
+}
+
+// ---------- tabs ----------
+const TABS = [
+  { id: 'basic', label: 'BASIC' },
+  { id: 'calc', label: 'CALCULUS' },
+  { id: 'matrix', label: 'MATRIX' },
+  { id: 'vector', label: 'VECTOR' },
+  { id: 'stats', label: 'STATS / PROB' },
+  { id: 'eqn', label: 'EQUATIONS' },
+  { id: 'complex', label: 'COMPLEX / BASE-N' },
+  { id: 'misc', label: 'CONST / UNITS' }
+];
+
+let activeTab = 'basic';
+
+function renderTabbar() {
+  const bar = document.getElementById('tabbar');
+  bar.innerHTML = '';
+  TABS.forEach(t => {
+    const btn = h('div', {
+      class: 'tab' + (t.id === activeTab ? ' active' : ''),
+      text: t.label,
+      onclick: () => { activeTab = t.id; renderTabbar(); renderTool(); }
+    });
+    bar.appendChild(btn);
+  });
+}
+
+function renderTool() {
+  const area = document.getElementById('toolArea');
+  area.innerHTML = '';
+  const renderers = {
+    basic: renderBasic, calc: renderCalc, matrix: renderMatrix, vector: renderVector,
+    stats: renderStats, eqn: renderEqn, complex: renderComplex, misc: renderMisc
+  };
+  renderers[activeTab](area);
+}
+
+// ============================================================
+// BASIC
+// ============================================================
+function renderBasic(area) {
+  const input = textInput('basicExpr', 'e.g. 3*sin(45)+sqrt(16)');
+  area.appendChild(field('EXPRESSION', input));
+
+  const chips = ['sin(', 'cos(', 'tan(', 'sqrt(', 'log(', 'ln(', '^', '(', ')', 'pi', 'e', '!', '/', '*'];
+  const chipRow = h('div', { class: 'btn-row' });
+  chips.forEach(c => {
+    chipRow.appendChild(h('button', {
+      class: 'small', text: c,
+      onclick: () => {
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.value = input.value.slice(0, start) + c + input.value.slice(end);
+        input.focus();
+        input.selectionStart = input.selectionEnd = start + c.length;
+      }
+    }));
+  });
+  area.appendChild(chipRow);
+
+  const runRow = h('div', { class: 'btn-row' });
+  const goBtn = h('button', { class: 'primary', text: '= EVALUATE' });
+  const clrBtn = h('button', { class: 'ghost small', text: 'clear' });
+  runRow.appendChild(goBtn); runRow.appendChild(clrBtn);
+  area.appendChild(runRow);
+
+  clrBtn.addEventListener('click', () => { input.value = ''; const r = area.querySelector('.result'); if (r) r.remove(); });
+
+  goBtn.addEventListener('click', () => tryRun(area, () => {
+    setDegrees(degModeUI);
+    const val = evalExpr(gv('basicExpr'));
+    return resultPanel([{ label: 'RESULT', value: fmt(val) }]);
+  }));
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') goBtn.click(); });
+}
+
+// ============================================================
+// CALCULUS
+// ============================================================
+function renderCalc(area) {
+  const tool = h('select', { id: 'calcTool' }, );
+  ['integral', 'derivative', 'sum', 'product'].forEach(v => {
+    const labels = { integral: 'Numerical Integration ∫', derivative: 'Numerical Differentiation d/dx', sum: 'Summation Σ', product: 'Product Π' };
+    tool.appendChild(h('option', { value: v, text: labels[v] }));
+  });
+  area.appendChild(field('TOOL', tool));
+  const body = h('div', { id: 'calcBody' });
+  area.appendChild(body);
+  tool.addEventListener('change', () => renderCalcBody(body, tool.value));
+  renderCalcBody(body, tool.value);
+}
+
+function renderCalcBody(body, mode) {
+  body.innerHTML = '';
+  if (mode === 'integral') {
+    body.appendChild(field('f(x) —  use variable x', textInput('intF', 'e.g. x^2 + sin(x)')));
+    const row = h('div', { class: 'field-row' }, [
+      field('lower bound a', numInput('intA', '0')),
+      field('upper bound b', numInput('intB', '1'))
+    ]);
+    body.appendChild(row);
+    body.appendChild(field('subintervals (even, default 1000)', numInput('intN', '1000')));
+    const btn = h('button', { class: 'primary', text: 'INTEGRATE' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      setDegrees(degModeUI);
+      const n = gv('intN') ? gvf('intN') : 1000;
+      const val = simpsonIntegrate(gv('intF'), gvf('intA'), gvf('intB'), n);
+      return resultPanel([{ label: `∫ f(x) dx  from ${gv('intA')} to ${gv('intB')}`, value: fmt(val) }]);
+    }));
+  } else if (mode === 'derivative') {
+    body.appendChild(field('f(x) — use variable x', textInput('dF', 'e.g. x^3 - 2x')));
+    body.appendChild(field('evaluate at x =', numInput('dX', '1')));
+    const btn = h('button', { class: 'primary', text: 'DIFFERENTIATE' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      setDegrees(degModeUI);
+      const val = numericalDerivative(gv('dF'), gvf('dX'));
+      return resultPanel([{ label: `f'(${gv('dX')})`, value: fmt(val) }]);
+    }));
+  } else if (mode === 'sum' || mode === 'product') {
+    const varLabel = mode === 'sum' ? 'f(n) — expression in n' : 'f(n) — expression in n';
+    body.appendChild(field(varLabel, textInput('spF', mode === 'sum' ? 'e.g. 1/n^2' : 'e.g. (2n-1)/(2n)')));
+    const row = h('div', { class: 'field-row' }, [
+      field('start (n=)', numInput('spStart', '1')),
+      field('end', numInput('spEnd', '10'))
+    ]);
+    body.appendChild(row);
+    const label = mode === 'sum' ? 'Σ SUM' : 'Π PRODUCT';
+    const btn = h('button', { class: 'primary', text: label });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      setDegrees(degModeUI);
+      const val = mode === 'sum'
+        ? summation(gv('spF'), gvf('spStart'), gvf('spEnd'), 'n')
+        : product(gv('spF'), gvf('spStart'), gvf('spEnd'), 'n');
+      return resultPanel([{ label: `${mode === 'sum' ? 'Σ' : 'Π'} n=${gv('spStart')}..${gv('spEnd')}`, value: fmt(val) }]);
+    }));
+  }
+}
+
+// ============================================================
+// MATRIX
+// ============================================================
+function buildMatrixGrid(containerId, rows, cols, prefix) {
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      grid.appendChild(h('input', { type: 'text', id: `${prefix}_${i}_${j}`, value: '0' }));
+    }
+  }
+}
+function readMatrix(prefix, rows, cols) {
+  const M = [];
+  for (let i = 0; i < rows; i++) {
+    const row = [];
+    for (let j = 0; j < cols; j++) row.push(parseFloat(gv(`${prefix}_${i}_${j}`)) || 0);
+    M.push(row);
+  }
+  return M;
+}
+function matrixResultBlock(title, M) {
+  const wrap = h('div', { class: 'result' });
+  wrap.appendChild(h('div', { class: 'result-label', text: title }));
+  const grid = h('div', { class: 'matrix-grid' });
+  grid.style.gridTemplateColumns = `repeat(${M[0].length}, auto)`;
+  M.forEach(row => row.forEach(v => grid.appendChild(h('div', { class: 'result-line', text: fmt(v), style: 'margin:0;' }))));
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function renderMatrix(area) {
+  const dimsRowA = h('div', { class: 'field-row' }, [
+    field('A rows', selectEl('aRows', ['1','2','3','4'], '2')),
+    field('A cols', selectEl('aCols', ['1','2','3','4'], '2'))
+  ]);
+  area.appendChild(h('div', { class: 'panel-block' }, [
+    h('h4', { text: 'MATRIX A' }), dimsRowA, h('div', { id: 'gridA', class: 'matrix-grid' })
+  ]));
+
+  const dimsRowB = h('div', { class: 'field-row' }, [
+    field('B rows', selectEl('bRows', ['1','2','3','4'], '2')),
+    field('B cols', selectEl('bCols', ['1','2','3','4'], '2'))
+  ]);
+  area.appendChild(h('div', { class: 'panel-block' }, [
+    h('h4', { text: 'MATRIX B' }), dimsRowB, h('div', { id: 'gridB', class: 'matrix-grid' })
+  ]));
+
+  function rebuildA() { buildMatrixGrid('gridA', +gv('aRows'), +gv('aCols'), 'a'); }
+  function rebuildB() { buildMatrixGrid('gridB', +gv('bRows'), +gv('bCols'), 'b'); }
+  rebuildA(); rebuildB();
+  ['aRows','aCols'].forEach(id => document.getElementById(id).addEventListener('change', rebuildA));
+  ['bRows','bCols'].forEach(id => document.getElementById(id).addEventListener('change', rebuildB));
+
+  const btnRow = h('div', { class: 'btn-row' });
+  const ops = [
+    ['A + B', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols')), B = readMatrix('b', +gv('bRows'), +gv('bCols'));
+      if (gv('aRows')!==gv('bRows') || gv('aCols')!==gv('bCols')) throw new Error('A and B must have identical dimensions');
+      return matrixResultBlock('A + B', matAdd(A,B)); }],
+    ['A − B', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols')), B = readMatrix('b', +gv('bRows'), +gv('bCols'));
+      if (gv('aRows')!==gv('bRows') || gv('aCols')!==gv('bCols')) throw new Error('A and B must have identical dimensions');
+      return matrixResultBlock('A − B', matSub(A,B)); }],
+    ['A × B', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols')), B = readMatrix('b', +gv('bRows'), +gv('bCols'));
+      if (+gv('aCols') !== +gv('bRows')) throw new Error('cols(A) must equal rows(B)');
+      return matrixResultBlock('A × B', matMul(A,B)); }],
+    ['det(A)', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols'));
+      if (gv('aRows')!==gv('aCols')) throw new Error('A must be square');
+      return resultPanel([{ label: 'det(A)', value: fmt(matDeterminant(A)) }]); }],
+    ['inv(A)', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols'));
+      if (gv('aRows')!==gv('aCols')) throw new Error('A must be square');
+      return matrixResultBlock('A⁻¹', matInverse(A)); }],
+    ['Aᵀ', () => { const A = readMatrix('a', +gv('aRows'), +gv('aCols')); return matrixResultBlock('Aᵀ', matTranspose(A)); }],
+    ['det(B)', () => { const B = readMatrix('b', +gv('bRows'), +gv('bCols'));
+      if (gv('bRows')!==gv('bCols')) throw new Error('B must be square');
+      return resultPanel([{ label: 'det(B)', value: fmt(matDeterminant(B)) }]); }],
+    ['inv(B)', () => { const B = readMatrix('b', +gv('bRows'), +gv('bCols'));
+      if (gv('bRows')!==gv('bCols')) throw new Error('B must be square');
+      return matrixResultBlock('B⁻¹', matInverse(B)); }],
+    ['Bᵀ', () => { const B = readMatrix('b', +gv('bRows'), +gv('bCols')); return matrixResultBlock('Bᵀ', matTranspose(B)); }]
+  ];
+  ops.forEach(([label, fn]) => {
+    btnRow.appendChild(h('button', { class: 'small', text: label, onclick: () => tryRun(area, fn) }));
+  });
+  area.appendChild(btnRow);
+}
+
+// ============================================================
+// VECTOR
+// ============================================================
+function renderVector(area) {
+  const sizeSel = selectEl('vecSize', ['2','3'], '3');
+  area.appendChild(field('DIMENSION', sizeSel));
+
+  const aBox = h('div', { class: 'panel-block' }, [h('h4', { text: 'VECTOR A' }), h('div', { id: 'vecAInputs', class: 'field-row' })]);
+  const bBox = h('div', { class: 'panel-block' }, [h('h4', { text: 'VECTOR B' }), h('div', { id: 'vecBInputs', class: 'field-row' })]);
+  area.appendChild(aBox); area.appendChild(bBox);
+
+  function rebuild() {
+    const n = +gv('vecSize');
+    const aWrap = document.getElementById('vecAInputs'); aWrap.innerHTML = '';
+    const bWrap = document.getElementById('vecBInputs'); bWrap.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      aWrap.appendChild(field(`a${i+1}`, numInput(`va${i}`, '0')));
+      bWrap.appendChild(field(`b${i+1}`, numInput(`vb${i}`, '0')));
+    }
+  }
+  rebuild();
+  sizeSel.addEventListener('change', rebuild);
+
+  const btn = h('button', { class: 'primary', text: 'COMPUTE' });
+  area.appendChild(h('div', { class: 'btn-row' }, [btn]));
+
+  btn.addEventListener('click', () => tryRun(area, () => {
+    const n = +gv('vecSize');
+    const A = Array.from({length:n}, (_,i) => parseFloat(gv(`va${i}`)) || 0);
+    const B = Array.from({length:n}, (_,i) => parseFloat(gv(`vb${i}`)) || 0);
+    const lines = [];
+    lines.push({ label: 'A · B (dot product)', value: fmt(vecDot(A,B)) });
+    const cross = vecCross(A,B);
+    lines.push({ label: 'A × B (cross product)', value: Array.isArray(cross) ? `[${cross.map(fmt).join(', ')}]` : fmt(cross) });
+    lines.push({ label: '|A| (magnitude)', value: fmt(vecMagnitude(A)) });
+    lines.push({ label: '|B| (magnitude)', value: fmt(vecMagnitude(B)) });
+    return resultPanel(lines);
+  }));
+}
+
+// ============================================================
+// STATS & PROBABILITY
+// ============================================================
+function parseDataList(str) {
+  return str.split(/[,\n\s]+/).map(s => s.trim()).filter(Boolean).map(Number);
+}
+function parseXYPairs(str) {
+  const lines = str.split('\n').map(s => s.trim()).filter(Boolean);
+  const xs = [], ys = [];
+  lines.forEach(line => {
+    const parts = line.split(/[,\s]+/).map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) { xs.push(parts[0]); ys.push(parts[1]); }
+  });
+  return { xs, ys };
+}
+
+function renderStats(area) {
+  const tool = h('select', { id: 'statTool' });
+  [['normal','Normal Distribution'],['invnormal','Inverse Normal'],['binomial','Binomial Distribution'],
+   ['poisson','Poisson Distribution'],['regression','Regression Modeling'],['combo','Permutations & Combinations'],
+   ['datastats','Multi-Variable Statistics']].forEach(([v,l]) => tool.appendChild(h('option',{value:v,text:l})));
+  area.appendChild(field('TOOL', tool));
+  const body = h('div', { id: 'statBody' });
+  area.appendChild(body);
+  tool.addEventListener('change', () => renderStatBody(body, tool.value));
+  renderStatBody(body, tool.value);
+}
+
+function renderStatBody(body, mode) {
+  body.innerHTML = '';
+  if (mode === 'normal') {
+    body.appendChild(field('x', numInput('nX','0')));
+    const row = h('div',{class:'field-row'},[field('mean μ', numInput('nMu','0')), field('stdev σ', numInput('nSig','1'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const x=gvf('nX'), mu=gvf('nMu'), sig=gvf('nSig');
+      return resultPanel([
+        {label:'PDF f(x)', value: fmt(normalPDF(x,mu,sig))},
+        {label:'CDF P(X ≤ x)', value: fmt(normalCDF(x,mu,sig))},
+        {label:'P(X > x)', value: fmt(1-normalCDF(x,mu,sig))}
+      ]);
+    }));
+  } else if (mode === 'invnormal') {
+    body.appendChild(field('probability p (0 to 1)', numInput('ipP','0.975')));
+    const row = h('div',{class:'field-row'},[field('mean μ', numInput('ipMu','0')), field('stdev σ', numInput('ipSig','1'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const val = invNormal(gvf('ipP'), gvf('ipMu'), gvf('ipSig'));
+      return resultPanel([{label:'x such that P(X ≤ x) = p', value: fmt(val)}]);
+    }));
+  } else if (mode === 'binomial') {
+    const row1 = h('div',{class:'field-row'},[field('trials n', numInput('bN','10')), field('successes k', numInput('bK','3'))]);
+    body.appendChild(row1);
+    body.appendChild(field('probability p', numInput('bP','0.5')));
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const n=gvf('bN'), k=gvf('bK'), p=gvf('bP');
+      return resultPanel([
+        {label:'P(X = k)', value: fmt(binomialPMF(k,n,p))},
+        {label:'P(X ≤ k)', value: fmt(binomialCDF(k,n,p))},
+        {label:'P(X > k)', value: fmt(1-binomialCDF(k,n,p))}
+      ]);
+    }));
+  } else if (mode === 'poisson') {
+    const row1 = h('div',{class:'field-row'},[field('λ (mean rate)', numInput('poLam','4')), field('k (events)', numInput('poK','2'))]);
+    body.appendChild(row1);
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const lam=gvf('poLam'), k=gvf('poK');
+      return resultPanel([
+        {label:'P(X = k)', value: fmt(poissonPMF(k,lam))},
+        {label:'P(X ≤ k)', value: fmt(poissonCDF(k,lam))},
+        {label:'P(X > k)', value: fmt(1-poissonCDF(k,lam))}
+      ]);
+    }));
+  } else if (mode === 'regression') {
+    const typeSel = selectEl('regType', [['linear','Linear  y=a+bx'],['log','Logarithmic  y=a+b·ln(x)'],
+      ['exp','Exponential  y=a·e^(bx)'],['power','Power  y=a·x^b'],['quad','Quadratic  y=a+bx+cx²']], 'linear');
+    body.appendChild(field('MODEL', typeSel));
+    body.appendChild(field('data points — one "x, y" pair per line', h('textarea',{id:'regData', placeholder:'1, 2.1\n2, 3.9\n3, 6.1\n4, 7.9'})));
+    const btn = h('button',{class:'primary',text:'FIT MODEL'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const { xs, ys } = parseXYPairs(gv('regData'));
+      if (xs.length < 2) throw new Error('Need at least 2 data points');
+      const type = gv('regType');
+      let out, formula;
+      if (type === 'linear') { out = linRegress(xs,ys); formula = `y = ${fmt(out.a)} + ${fmt(out.b)}x`; }
+      else if (type === 'log') { out = logRegress(xs,ys); formula = `y = ${fmt(out.a)} + ${fmt(out.b)}·ln(x)`; }
+      else if (type === 'exp') { out = expRegress(xs,ys); formula = `y = ${fmt(out.a)}·e^(${fmt(out.b)}x)`; }
+      else if (type === 'power') { out = powRegress(xs,ys); formula = `y = ${fmt(out.a)}·x^${fmt(out.b)}`; }
+      else { out = quadRegress(xs,ys); formula = `y = ${fmt(out.a)} + ${fmt(out.b)}x + ${fmt(out.c)}x²`; }
+      return resultPanel([{label:'MODEL', value: formula}, {label:'R² (goodness of fit)', value: fmt(out.r2)}]);
+    }));
+  } else if (mode === 'combo') {
+    const row = h('div',{class:'field-row'},[field('n', numInput('cmN','10')), field('r', numInput('cmR','3'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const n=gvf('cmN'), r=gvf('cmR');
+      return resultPanel([
+        {label:'nPr (permutations)', value: fmt(nPr(n,r))},
+        {label:'nCr (combinations)', value: fmt(nCr(n,r))}
+      ]);
+    }));
+  } else if (mode === 'datastats') {
+    body.appendChild(field('data set X — comma or newline separated', h('textarea',{id:'dsX', placeholder:'2, 4, 4, 4, 5, 5, 7, 9'})));
+    body.appendChild(field('data set Y (optional — for paired stats)', h('textarea',{id:'dsY', placeholder:'optional'})));
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const xs = parseDataList(gv('dsX'));
+      if (xs.length < 1) throw new Error('Enter at least one value');
+      const s = statSums(xs);
+      const lines = [
+        {label:'n', value: s.n}, {label:'Σx', value: fmt(s.sumX)}, {label:'Σx²', value: fmt(s.sumX2)},
+        {label:'mean', value: fmt(s.mean)},
+        {label:'population variance / stdev', value: `${fmt(s.variancePop)}  /  ${fmt(s.stdevPop)}`},
+        {label:'sample variance / stdev', value: `${fmt(s.varianceSamp)}  /  ${fmt(s.stdevSamp)}`}
+      ];
+      const ysRaw = gv('dsY').trim();
+      if (ysRaw) {
+        const ys = parseDataList(ysRaw);
+        if (ys.length === xs.length) {
+          const xy = statSumsXY(xs, ys);
+          const r = linRegress(xs, ys).r2;
+          lines.push({label:'Σy', value: fmt(xy.sumY)}, {label:'Σy²', value: fmt(xy.sumY2)},
+                     {label:'Σxy', value: fmt(xy.sumXY)}, {label:'R² (linear fit)', value: fmt(r)});
+        } else {
+          lines.push({label:'⚠', value: 'Y set length must match X to compute paired stats'});
+        }
+      }
+      return resultPanel(lines);
+    }));
+  }
+}
+
+// ============================================================
+// EQUATION & SYSTEM SOLVERS
+// ============================================================
+function renderEqn(area) {
+  const tool = h('select', { id: 'eqnTool' });
+  [['poly','Polynomial Solver'],['lin','Simultaneous Linear Equations'],['newton',"General Solver (Newton's Method)"]]
+    .forEach(([v,l]) => tool.appendChild(h('option',{value:v,text:l})));
+  area.appendChild(field('TOOL', tool));
+  const body = h('div', { id: 'eqnBody' });
+  area.appendChild(body);
+  tool.addEventListener('change', () => renderEqnBody(body, tool.value));
+  renderEqnBody(body, tool.value);
+}
+
+function renderEqnBody(body, mode) {
+  body.innerHTML = '';
+  if (mode === 'poly') {
+    const degSel = selectEl('polyDeg', [['2','Quadratic (deg 2)'],['3','Cubic (deg 3)'],['4','Quartic (deg 4)']], '2');
+    body.appendChild(field('DEGREE', degSel));
+    const coefWrap = h('div', { id: 'coefWrap', class: 'panel-block' });
+    body.appendChild(coefWrap);
+    function rebuildCoefs() {
+      const deg = +gv('polyDeg');
+      coefWrap.innerHTML = '';
+      coefWrap.appendChild(h('h4', { text: 'COEFFICIENTS  (highest power first)' }));
+      for (let p = deg; p >= 0; p--) {
+        coefWrap.appendChild(field(`x^${p} coefficient`, numInput(`coef_${p}`, p === deg ? '1' : '0')));
+      }
+    }
+    rebuildCoefs();
+    degSel.addEventListener('change', rebuildCoefs);
+    const btn = h('button', { class: 'primary', text: 'SOLVE' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const deg = +gv('polyDeg');
+      const coeffs = [];
+      for (let p = deg; p >= 0; p--) coeffs.push(parseFloat(gv(`coef_${p}`)) || 0);
+      if (coeffs[0] === 0) throw new Error('Leading coefficient cannot be zero');
+      const roots = polyRoots(coeffs);
+      const lines = roots.map((r, i) => ({ label: `root ${i+1}`, value: formatComplex(r) }));
+      return resultPanel(lines);
+    }));
+  } else if (mode === 'lin') {
+    const nSel = selectEl('linN', ['2','3','4'], '3');
+    body.appendChild(field('NUMBER OF UNKNOWNS', nSel));
+    const gridWrap = h('div', { class: 'panel-block' });
+    body.appendChild(gridWrap);
+    function rebuildLin() {
+      const n = +gv('linN');
+      gridWrap.innerHTML = '';
+      gridWrap.appendChild(h('h4', { text: 'A · x = b' }));
+      for (let i = 0; i < n; i++) {
+        const row = h('div', { class: 'field-row' });
+        for (let j = 0; j < n; j++) {
+          row.appendChild(field(`a${i+1}${j+1}`, numInput(`la_${i}_${j}`, i===j?'1':'0')));
+        }
+        row.appendChild(field(`b${i+1}`, numInput(`lb_${i}`, '0')));
+        gridWrap.appendChild(row);
+      }
+    }
+    rebuildLin();
+    nSel.addEventListener('change', rebuildLin);
+    const btn = h('button', { class: 'primary', text: 'SOLVE SYSTEM' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const n = +gv('linN');
+      const A = []; const b = [];
+      for (let i = 0; i < n; i++) {
+        const row = [];
+        for (let j = 0; j < n; j++) row.push(parseFloat(gv(`la_${i}_${j}`)) || 0);
+        A.push(row);
+        b.push(parseFloat(gv(`lb_${i}`)) || 0);
+      }
+      const x = solveLinearSystem(A, b);
+      return resultPanel(x.map((v, i) => ({ label: `x${i+1}`, value: fmt(v) })));
+    }));
+  } else if (mode === 'newton') {
+    body.appendChild(field('f(x) = 0 — expression in x', textInput('nwF', 'e.g. x^3 - x - 2')));
+    body.appendChild(field('initial guess x₀', numInput('nwX0', '1.5')));
+    const btn = h('button', { class: 'primary', text: 'APPROXIMATE ROOT' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      setDegrees(degModeUI);
+      const res = newtonSolve(gv('nwF'), gvf('nwX0'));
+      const lines = [{ label: 'root ≈', value: fmt(res.root) }, { label: 'iterations', value: res.iterations }];
+      if (res.warning) lines.push({ label: '⚠', value: res.warning });
+      return resultPanel(lines);
+    }));
+  }
+}
+
+// ============================================================
+// COMPLEX NUMBERS & BASE-N
+// ============================================================
+function renderComplex(area) {
+  const tool = h('select', { id: 'cxTool' });
+  [['rect2polar','Rectangular → Polar'],['polar2rect','Polar → Rectangular'],['conjarg','Conjugate & Argument'],
+   ['cxarith','Complex Arithmetic'],['baseconv','Base-N Convert'],['basearith','Base-N Arithmetic'],
+   ['baselogic','Base-N Logical Ops']].forEach(([v,l]) => tool.appendChild(h('option',{value:v,text:l})));
+  area.appendChild(field('TOOL', tool));
+  const body = h('div', { id: 'cxBody' });
+  area.appendChild(body);
+  tool.addEventListener('change', () => renderCxBody(body, tool.value));
+  renderCxBody(body, tool.value);
+}
+
+function angleUnit() { return degModeUI ? 'deg' : 'rad'; }
+
+function renderCxBody(body, mode) {
+  body.innerHTML = '';
+  if (mode === 'rect2polar') {
+    const row = h('div',{class:'field-row'},[field('a (real)', numInput('r2pA','1')), field('b (imag)', numInput('r2pB','1'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'CONVERT'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const a=gvf('r2pA'), b=gvf('r2pB');
+      const r = Math.hypot(a,b);
+      let theta = Math.atan2(b,a);
+      if (degModeUI) theta = theta*180/Math.PI;
+      return resultPanel([{label:'r (magnitude)', value: fmt(r)}, {label:`θ (${angleUnit()})`, value: fmt(theta)}]);
+    }));
+  } else if (mode === 'polar2rect') {
+    const row = h('div',{class:'field-row'},[field('r (magnitude)', numInput('p2rR','1')), field(`θ (${angleUnit()})`, numInput('p2rT','45'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'CONVERT'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const r=gvf('p2rR'); let t=gvf('p2rT');
+      if (degModeUI) t = t*Math.PI/180;
+      return resultPanel([{label:'a (real)', value: fmt(r*Math.cos(t))}, {label:'b (imag)', value: fmt(r*Math.sin(t))}]);
+    }));
+  } else if (mode === 'conjarg') {
+    const row = h('div',{class:'field-row'},[field('a (real)', numInput('caA','1')), field('b (imag)', numInput('caB','1'))]);
+    body.appendChild(row);
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const a=gvf('caA'), b=gvf('caB');
+      let theta = Math.atan2(b,a); if (degModeUI) theta = theta*180/Math.PI;
+      return resultPanel([
+        {label:'conjugate', value: formatComplex({re:a, im:-b})},
+        {label:`argument (${angleUnit()})`, value: fmt(theta)},
+        {label:'magnitude', value: fmt(Math.hypot(a,b))}
+      ]);
+    }));
+  } else if (mode === 'cxarith') {
+    body.appendChild(h('h4',{text:'z1', style:'color:var(--amber);font-size:11px;margin:4px 0;'}));
+    body.appendChild(h('div',{class:'field-row'},[field('a', numInput('z1a','1')), field('b', numInput('z1b','1'))]));
+    body.appendChild(h('h4',{text:'z2', style:'color:var(--amber);font-size:11px;margin:4px 0;'}));
+    body.appendChild(h('div',{class:'field-row'},[field('c', numInput('z2a','1')), field('d', numInput('z2b','1'))]));
+    const opSel = selectEl('cxOp', [['+','z1 + z2'],['-','z1 − z2'],['*','z1 × z2'],['/','z1 ÷ z2']], '+');
+    body.appendChild(field('OPERATION', opSel));
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const z1 = { re: gvf('z1a'), im: gvf('z1b') };
+      const z2 = { re: gvf('z2a'), im: gvf('z2b') };
+      const op = gv('cxOp');
+      const fnMap = { '+': C.add, '-': C.sub, '*': C.mul, '/': C.div };
+      const res = fnMap[op](z1, z2);
+      return resultPanel([{label:'RESULT', value: formatComplex(res)}]);
+    }));
+  } else if (mode === 'baseconv') {
+    body.appendChild(field('value', textInput('bcVal','FF')));
+    body.appendChild(field('from base', selectEl('bcFrom', [['2','binary (2)'],['8','octal (8)'],['10','decimal (10)'],['16','hex (16)']], '16')));
+    const btn = h('button',{class:'primary',text:'CONVERT'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const dec = parseBigIntBase(gv('bcVal'), +gv('bcFrom'));
+      return resultPanel([
+        {label:'binary', value: decimalToBase(dec,2)},
+        {label:'octal', value: decimalToBase(dec,8)},
+        {label:'decimal', value: dec.toString()},
+        {label:'hexadecimal', value: decimalToBase(dec,16).toUpperCase()}
+      ]);
+    }));
+  } else if (mode === 'basearith') {
+    body.appendChild(field('base', selectEl('baBase', [['2','binary'],['8','octal'],['10','decimal'],['16','hex']], '16')));
+    body.appendChild(h('div',{class:'field-row'},[field('value 1', textInput('baV1','A')), field('value 2', textInput('baV2','5'))]));
+    body.appendChild(field('operation', selectEl('baOp', [['+','add'],['-','subtract'],['*','multiply']], '+')));
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const base = +gv('baBase');
+      const v1 = parseBigIntBase(gv('baV1'), base);
+      const v2 = parseBigIntBase(gv('baV2'), base);
+      const op = gv('baOp');
+      const res = op === '+' ? v1 + v2 : op === '-' ? v1 - v2 : v1 * v2;
+      return resultPanel([
+        { label: `result (base ${base})`, value: decimalToBase(res, base).toUpperCase() },
+        { label: 'result (decimal)', value: res.toString() }
+      ]);
+    }));
+  } else if (mode === 'baselogic') {
+    body.appendChild(field('base', selectEl('blBase', [['2','binary'],['8','octal'],['10','decimal'],['16','hex']], '2')));
+    body.appendChild(field('bit width', selectEl('blWidth', ['8','16','32'], '8')));
+    body.appendChild(h('div',{class:'field-row'},[field('value 1', textInput('blV1','1010')), field('value 2 (unused for NOT)', textInput('blV2','0110'))]));
+    body.appendChild(field('operation', selectEl('blOp', [['AND','AND'],['OR','OR'],['XOR','XOR'],['NOT','NOT (of value 1)']], 'AND')));
+    const btn = h('button',{class:'primary',text:'COMPUTE'});
+    body.appendChild(h('div',{class:'btn-row'},[btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const base = +gv('blBase');
+      const width = BigInt(+gv('blWidth'));
+      const mask = (1n << width) - 1n;
+      const v1 = parseBigIntBase(gv('blV1'), base) & mask;
+      const v2 = parseBigIntBase(gv('blV2'), base) & mask;
+      const op = gv('blOp');
+      let res;
+      if (op === 'AND') res = v1 & v2;
+      else if (op === 'OR') res = v1 | v2;
+      else if (op === 'XOR') res = v1 ^ v2;
+      else res = (~v1) & mask;
+      return resultPanel([
+        { label: `result (base ${base}, ${gv('blWidth')}-bit)`, value: decimalToBase(res, base).toUpperCase() },
+        { label: 'result (decimal)', value: res.toString() }
+      ]);
+    }));
+  }
+}
+
+// ============================================================
+// CONSTANTS, UNIT CONVERSIONS, ENGINEERING NOTATION, FUNCTION TABLES
+// ============================================================
+const CONST_INFO = [
+  ['c', CONSTANTS.c, 'speed of light (m/s)'],
+  ['h', CONSTANTS.h, "Planck constant (J·s)"],
+  ['hbar', CONSTANTS.hbar, "reduced Planck constant (J·s)"],
+  ['NA', CONSTANTS.NA, "Avogadro's number (1/mol)"],
+  ['k', CONSTANTS.k, 'Boltzmann constant (J/K)'],
+  ['G', CONSTANTS.G, 'gravitational constant (N·m²/kg²)'],
+  ['R', CONSTANTS.R, 'gas constant (J/(mol·K))'],
+  ['g', CONSTANTS.g, 'standard gravity (m/s²)'],
+  ['qe', CONSTANTS.qe, 'elementary charge (C)'],
+  ['me', CONSTANTS.me, 'electron mass (kg)'],
+  ['mp', CONSTANTS.mp, 'proton mass (kg)'],
+  ['eps0', CONSTANTS.eps0, 'vacuum permittivity (F/m)'],
+  ['mu0', CONSTANTS.mu0, 'vacuum permeability (H/m)'],
+  ['F', CONSTANTS.F, 'Faraday constant (C/mol)'],
+  ['pi', CONSTANTS.pi, 'pi'],
+  ['e', CONSTANTS.e, "Euler's number"]
+];
+
+const UNIT_LABELS = {
+  length: { m:'meter', km:'kilometer', cm:'centimeter', mm:'millimeter', mi:'mile', yd:'yard', ft:'foot', in:'inch', nmi:'nautical mile' },
+  area: { m2:'m²', km2:'km²', cm2:'cm²', ft2:'ft²', in2:'in²', acre:'acre', hectare:'hectare' },
+  mass: { kg:'kilogram', g:'gram', mg:'milligram', lb:'pound', oz:'ounce', ton:'US ton', tonne:'metric tonne' },
+  velocity: { mps:'m/s', kmh:'km/h', mph:'mph', fps:'ft/s', knot:'knot' },
+  pressure: { pa:'pascal', kpa:'kilopascal', bar:'bar', atm:'atmosphere', psi:'psi', mmHg:'mmHg' },
+  temperature: { C:'Celsius', F:'Fahrenheit', K:'Kelvin' }
+};
+
+function renderMisc(area) {
+  const tool = h('select', { id: 'miscTool' });
+  [['const','Scientific Constants'],['unit','Unit Converter'],['eng','Engineering Notation'],['table','Function Multi-Table']]
+    .forEach(([v,l]) => tool.appendChild(h('option',{value:v,text:l})));
+  area.appendChild(field('TOOL', tool));
+  const body = h('div', { id: 'miscBody' });
+  area.appendChild(body);
+  tool.addEventListener('change', () => renderMiscBody(body, tool.value));
+  renderMiscBody(body, tool.value);
+}
+
+function renderMiscBody(body, mode) {
+  body.innerHTML = '';
+  if (mode === 'const') {
+    const wrap = h('div', { class: 'panel-block' });
+    const table = h('table', { class: 'const-table' });
+    CONST_INFO.forEach(([sym, val, desc]) => {
+      const tr = h('tr', {}, [
+        h('td', { class: 'sym', text: sym }),
+        h('td', { class: 'val', text: fmt(val) }),
+        h('td', { class: 'desc', text: desc })
+      ]);
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    body.appendChild(wrap);
+    body.appendChild(h('div', { class: 'hint', text: `Use these symbols directly inside any expression field — e.g. "NA * 2" or "1/2 * me * c^2".` }));
+  } else if (mode === 'unit') {
+    const catSel = selectEl('unitCat', [['length','Length'],['area','Area'],['mass','Mass'],['velocity','Velocity'],['pressure','Pressure'],['temperature','Temperature']], 'length');
+    body.appendChild(field('CATEGORY', catSel));
+    body.appendChild(field('value', numInput('unitVal', '1')));
+    const row = h('div', { class: 'field-row', id: 'unitFromToRow' });
+    body.appendChild(row);
+    function rebuildUnits() {
+      const cat = gv('unitCat');
+      const labels = UNIT_LABELS[cat];
+      const opts = Object.entries(labels).map(([k,l]) => [k, l]);
+      row.innerHTML = '';
+      row.appendChild(field('from', selectEl('unitFrom', opts, opts[0][0])));
+      row.appendChild(field('to', selectEl('unitTo', opts, opts[1] ? opts[1][0] : opts[0][0])));
+    }
+    rebuildUnits();
+    catSel.addEventListener('change', rebuildUnits);
+    const btn = h('button', { class: 'primary', text: 'CONVERT' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      const val = convertUnit(gv('unitCat'), gvf('unitVal'), gv('unitFrom'), gv('unitTo'));
+      return resultPanel([{ label: `${gv('unitVal')} ${gv('unitFrom')} =`, value: `${fmt(val)} ${gv('unitTo')}` }]);
+    }));
+  } else if (mode === 'eng') {
+    body.appendChild(field('value', numInput('engVal', '0.00012345')));
+    const btn = h('button', { class: 'primary', text: 'CONVERT' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      return resultPanel([{ label: 'ENGINEERING NOTATION', value: toEngineering(gvf('engVal')) }]);
+    }));
+  } else if (mode === 'table') {
+    body.appendChild(field('f(x) — use variable x', textInput('tblF', 'x^2')));
+    body.appendChild(field('g(x) — optional, leave blank to skip', textInput('tblG', 'sqrt(x)')));
+    const row = h('div', { class: 'field-row' }, [
+      field('start', numInput('tblStart', '0')),
+      field('end', numInput('tblEnd', '5')),
+      field('step', numInput('tblStep', '1'))
+    ]);
+    body.appendChild(row);
+    const btn = h('button', { class: 'primary', text: 'GENERATE TABLE' });
+    body.appendChild(h('div', { class: 'btn-row' }, [btn]));
+    btn.addEventListener('click', () => tryRun(body, () => {
+      setDegrees(degModeUI);
+      const fSrc = gv('tblF'), gSrc = gv('tblG').trim();
+      const start = gvf('tblStart'), end = gvf('tblEnd'), step = gvf('tblStep');
+      if (step <= 0) throw new Error('Step must be positive');
+      const rowsCount = Math.floor((end - start) / step) + 1;
+      if (rowsCount > 60) throw new Error('Too many rows (max 60) — increase step or narrow the range');
+      const f = compile(fSrc);
+      const g = gSrc ? compile(gSrc) : null;
+      const table = h('table', { class: 'data-table' });
+      const headRow = h('tr', {}, [h('th', { text: 'x' }), h('th', { text: 'f(x)' })]);
+      if (g) headRow.appendChild(h('th', { text: 'g(x)' }));
+      table.appendChild(headRow);
+      for (let i = 0; i < rowsCount; i++) {
+        const x = start + i * step;
+        const tr = h('tr', {}, [h('td', { text: fmt(x) }), h('td', { text: fmt(f({x})) })]);
+        if (g) tr.appendChild(h('td', { text: fmt(g({x})) }));
+        table.appendChild(tr);
+      }
+      const wrap = h('div', { class: 'result' });
+      wrap.appendChild(table);
+      return wrap;
+    }));
+  }
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+function tickClock() {
+  const el = document.getElementById('clockOut');
+  if (el) el.textContent = new Date().toTimeString().slice(0,8);
+}
+
+function initDegToggle() {
+  const head = document.querySelector('.console-head');
+  const btn = h('button', {
+    id: 'degToggle', class: 'small', text: 'RAD',
+    style: 'padding:4px 8px;font-size:10px;'
+  });
+  btn.addEventListener('click', () => { degModeUI = !degModeUI; setDegrees(degModeUI); refreshDegBtn(); });
+  head.appendChild(btn);
+}
+
+initDegToggle();
+tickClock();
+setInterval(tickClock, 1000);
+renderTabbar();
+renderTool();
+
+</script>
+</body>
+</html>
